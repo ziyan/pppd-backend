@@ -1,5 +1,5 @@
-pppd-password
-=============
+pppd-backend
+============
 
 Executes a program to check username/password pair for pppd.
 
