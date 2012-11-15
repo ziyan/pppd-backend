@@ -1,4 +1,4 @@
-pppd-backend
-============
+pppd-password
+=============
 
-Executes a backend program to check username/password pair for pppd.
+Executes a program to check username/password pair for pppd.
