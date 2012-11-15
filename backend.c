@@ -47,6 +47,7 @@ static int backend_verify(char *name, char *ourname, int id, struct chap_digest_
     {
         return 0;
     }
+    info("BACKEND executing: %s", command);
     
     fp = popen(command, "r");
     if (fp == NULL)
