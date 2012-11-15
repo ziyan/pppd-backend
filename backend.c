@@ -78,12 +78,12 @@ static int backend_verify(char *name, char *ourname, int id, struct chap_digest_
 
 static int backend_allowed_address(u_int32_t addr)
 {
-	ipcp_options *options = &ipcp_wantoptions[0];
-	if (options->hisaddr != 0 && options->hisaddr == addr)
-	{
-		return 1;
-	}
-	return -1;
+    ipcp_options *options = &ipcp_wantoptions[0];
+    if (options->hisaddr != 0 && options->hisaddr == addr)
+    {
+        return 1;
+    }
+    return -1;
 }
 
 void plugin_init(void)
@@ -91,15 +91,15 @@ void plugin_init(void)
     add_options(options);
 
     chap_check_hook = backend_check;
-	chap_verify_hook = backend_verify;
-	
+    chap_verify_hook = backend_verify;
+
     allowed_address_hook = backend_allowed_address;
 
     //
     // Only support one type of auth for now.
-    //	
-	chap_mdtype_all &= MDTYPE_MICROSOFT_V2;
+    //
+    chap_mdtype_all &= MDTYPE_MICROSOFT_V2;
 
-	info("BACKEND plugin initialized.");
+    info("BACKEND plugin initialized.");
 }
 
