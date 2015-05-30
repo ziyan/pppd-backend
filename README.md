@@ -12,10 +12,10 @@ In /etc/ppp/pptp-options and /etc/ppp/options.xl2tp, add:
 
     debug
     plugin backend.so
-    backend_command "/etc/ppp/auth.sh %s"
+    backend_command "/etc/ppp/auth.sh"
 
 Replace the command with what you want to execute.
-Remember to include %s for the username.
+The first argument to your executable will be the username.
 Your executable should output with the secret associated with the user in one line if the user is valid.
 
 Example auth.sh would be:
