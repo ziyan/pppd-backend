@@ -21,6 +21,5 @@ Your executable should output with the secret associated with the user in one li
 Example auth.sh would be:
 
     #!/bin/sh
-    USER=$1
-    [ "$USER" == "test" ] && echo "password"
+    [ "$1" == "test" ] && echo "password"
 
