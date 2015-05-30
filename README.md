@@ -6,7 +6,7 @@ Executes a program to check username/password pair for pppd.
 Usage
 =====
 
-Create a symlink or copy backend.so to /usr/lib/pppd/<version>/
+Create a symlink or copy backend.so to /usr/lib/pppd/VERSION/
 
 In /etc/ppp/pptp-options and /etc/ppp/options.xl2tp, add:
 
