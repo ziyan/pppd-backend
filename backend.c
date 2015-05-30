@@ -10,6 +10,16 @@
 #include <pppd/fsm.h>
 #include <pppd/ipcp.h>
 
+//
+// Specifying pppd version compiled against.
+//
+
+char pppd_version[] = VERSION;
+
+//
+// Backend process management.
+//
+
 typedef struct _backend
 {
     int fd_read[2];
@@ -197,9 +207,13 @@ static int backend_open(const char *cmd, char *argv[], backend_t *backend_out)
     //
 
     *backend_out = backend;
-    backend_close(&backend);
+    backend_zero(&backend);
     return 1;
 }
+
+//
+// Plugin.
+//
 
 static char *backend_command = NULL;
 
@@ -208,12 +222,20 @@ static option_t backend_options[] = {
     { NULL }
 };
 
-static int backend_verify(char *name, char *ourname, int id, struct chap_digest_type *digest, unsigned char *challenge, unsigned char *response, char *message, int message_space)
+static int backend_chap_check(void)
+{
+    dbglog("backend plugin: chap_check_hook()");
+    return 1;
+}
+
+static int backend_chap_verify(char *name, char *ourname, int id, struct chap_digest_type *digest, unsigned char *challenge, unsigned char *response, char *message, int message_space)
 {
     char *argv[3] = {backend_command, name, NULL};
     backend_t backend;
     char secret[MAXSECRETLEN + 1];
     int secret_len = 0;
+
+    dbglog("backend plugin: chap_verify_hook(name = %s, ourname = %s, id = %d)", name, ourname, id);
 
     //
     // Need to have a backend specified.
@@ -228,7 +250,7 @@ static int backend_verify(char *name, char *ourname, int id, struct chap_digest_
     // Execute backend.
     //
 
-    info("backend plugin executing: %s", backend_command);
+    info("backend plugin: executing: %s", backend_command);
     if (!backend_open(backend_command, argv, &backend))
     {
         return 0;
@@ -252,22 +274,6 @@ static int backend_verify(char *name, char *ourname, int id, struct chap_digest_
     }
 
     //
-    // Verify challenge response.
-    //
-
-    if (secret_len <= 0)
-    {
-        backend_close(&backend);
-        return 0;
-    }
-
-    if (!digest->verify_response(id, name, (unsigned char *)secret, secret_len, challenge, response, message, message_space))
-    {
-        backend_close(&backend);
-        return 0;
-    }
-
-    //
     // If backend process exited abnormally, consider that as a failed auth.
     //
 
@@ -277,16 +283,51 @@ static int backend_verify(char *name, char *ourname, int id, struct chap_digest_
         return 0;
     }
 
+    backend_close(&backend);
+
+    //
+    // Verify challenge response.
+    //
+
+    if (secret_len <= 0)
+    {
+        return 0;
+    }
+
+    if (!digest->verify_response(id, name, (unsigned char *)secret, secret_len, challenge, response, message, message_space))
+    {
+        return 0;
+    }
+
     //
     // No failure.
     //
 
-    backend_close(&backend);
     return 1;
+}
+
+static void backend_ip_choose(u_int32_t *addr)
+{
+    dbglog("backend plugin: ip_choose_hook()");
+}
+
+static int backend_allowed_address(u_int32_t addr)
+{
+    ipcp_options *options = &ipcp_wantoptions[0];
+
+    dbglog("backend plugin: allowed_address_hook(addr = %d)", addr);
+
+    if (options->hisaddr != 0 && options->hisaddr == addr)
+    {
+        return 1;
+    }
+    return 0;
 }
 
 void plugin_init(void)
 {
+    dbglog("backend plugin: plugin_init()");
+
     add_options(backend_options);
 
     //
@@ -294,8 +335,11 @@ void plugin_init(void)
     //
 
     chap_mdtype_all &= MDTYPE_MICROSOFT_V2;
-    chap_verify_hook = backend_verify;
+    chap_check_hook = backend_chap_check;
+    chap_verify_hook = backend_chap_verify;
+    ip_choose_hook = backend_ip_choose;
+    allowed_address_hook = backend_allowed_address;
 
-    info("backend plugin initialized.");
+    info("backend plugin: initialized");
 }
 
