@@ -328,12 +328,9 @@ Exit:
 
 void plugin_init(void)
 {
-    char *argv[] = {"pybackend", NULL};
-
     dbglog("pybackend plugin: plugin_init()");
 
     Py_Initialize();
-    PySys_SetArgvEx(0, argv, 0);
 
     add_options(pybackend_options);
 
