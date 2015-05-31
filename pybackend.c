@@ -36,6 +36,7 @@ static PyObject *pybackend_load_module()
 
     if (pybackend_module_name == NULL)
     {
+        warn("pybackend plugin: no python module specified");
         goto Exit;
     }
 
@@ -43,7 +44,6 @@ static PyObject *pybackend_load_module()
     if (pybackend_module == NULL)
     {
         warn("pybackend plugin: failed import module: %s", pybackend_module_name);
-        pybackend_module_name = NULL;
         goto Exit;
     }
 
@@ -59,8 +59,8 @@ Exit:
 static PyObject *pybackend_get_function(const char *name)
 {
     PyObject *result = NULL;
-    PyObject *attr = NULL;
     PyObject *module = NULL;
+    PyObject *attr = NULL;
 
     module = pybackend_load_module();
     if (module == NULL)
@@ -81,6 +81,10 @@ static PyObject *pybackend_get_function(const char *name)
         goto Exit;
     }
 
+    //
+    // No failure.
+    //
+
     result = attr;
     attr = NULL;
 
@@ -95,23 +99,27 @@ static PyObject *pybackend_call_function(const char *name, int nargs, ...)
 {
     PyObject *result = NULL;
     PyObject *func = NULL;
+    PyObject *arg = NULL;
     PyObject *args = NULL;
     PyObject *ret = NULL;
     va_list argp;
     int i = 0;
 
+    args = PyTuple_New(nargs);
     va_start(argp, nargs);
+    for (i = 0; i < nargs; i++)
+    {
+        arg = va_arg(argp, PyObject *);
+        Py_XINCREF(arg);
+        PyTuple_SetItem(args, i, arg);
+        arg = NULL;
+    }
+    va_end(argp);
 
     func = pybackend_get_function(name);
     if (func == NULL)
     {
         goto Exit;
-    }
-
-    args = PyTuple_New(nargs);
-    for (i = 0; i < nargs; i++)
-    {
-        PyTuple_SetItem(args, i, va_arg(argp, PyObject *));
     }
 
     dbglog("pybackend plugin: calling %s() with %d arguments", name, nargs);
@@ -123,12 +131,14 @@ static PyObject *pybackend_call_function(const char *name, int nargs, ...)
         goto Exit;
     }
 
+    //
+    // No failure.
+    //
+
     result = ret;
     ret = NULL;
 
 Exit:
-
-    va_end(argp);
 
     Py_CLEAR(ret);
     Py_CLEAR(args);
@@ -145,7 +155,7 @@ static int pybackend_chap_check(void)
     dbglog("pybackend plugin: chap_check_hook()");
 
     ret = pybackend_call_function("chap_check_hook", 0);
-    if (ret == NULL)
+    if (ret == NULL || ret == Py_None)
     {
         goto Exit;
     }
@@ -173,14 +183,26 @@ static int pybackend_chap_verify(char *name, char *ourname, int id, struct chap_
 {
     int result = 0;
     PyObject *ret = NULL;
+    PyObject *arg0 = NULL;
+    PyObject *arg1 = NULL;
+    PyObject *arg2 = NULL;
     char *secret = NULL;
     size_t secret_len = 0;
 
     dbglog("pybackend plugin: chap_verify_hook(name = %s, ourname = %s, id = %d, ipparm = %s)", name, ourname, id, ipparam);
 
-    ret = pybackend_call_function("chap_verify_hook", 3, PyString_FromString(name), PyString_FromString(ourname), PyString_FromString(ipparam));
-    if (ret == NULL)
+    arg0 = PyString_FromString(name);
+    arg1 = PyString_FromString(ourname);
+    arg2 = PyString_FromString(ipparam);
+    ret = pybackend_call_function("chap_verify_hook", 3, arg0, arg1, arg2);
+    if (ret == NULL || ret == Py_None)
     {
+        goto Exit;
+    }
+
+    if (!PyString_Check(ret))
+    {
+        warn("pybackend plugin: return value of chap_verify_hook() is not a string");
         goto Exit;
     }
 
@@ -193,10 +215,17 @@ static int pybackend_chap_verify(char *name, char *ourname, int id, struct chap_
         goto Exit;
     }
 
+    //
+    // No failure.
+    //
+
     result = 1;
 
 Exit:
 
+    Py_CLEAR(arg0);
+    Py_CLEAR(arg1);
+    Py_CLEAR(arg2);
     Py_CLEAR(ret);
 
     dbglog("pybackend plugin: chap_verify_hook: %d", result);
@@ -206,22 +235,32 @@ Exit:
 static void pybackend_ip_choose(u_int32_t *addr)
 {
     PyObject *ret = NULL;
+    PyObject *arg0 = NULL;
 
-    dbglog("pybackend plugin: ip_choose_hook()");
+    dbglog("pybackend plugin: ip_choose_hook(addr = %d)", *addr);
 
-    ret = pybackend_call_function("ip_choose_hook", 0);
-    if (ret == NULL)
+    arg0 = PyInt_FromSize_t(*addr);
+    ret = pybackend_call_function("ip_choose_hook", 1, arg0);
+    if (ret == NULL || ret == Py_None)
     {
         goto Exit;
     }
 
-    if (ret != Py_None)
+    if (!PyInt_Check(ret))
     {
-        *addr = PyInt_AsUnsignedLongMask(ret);
+        warn("pybackend plugin: return value of ip_choose_hook() is not an int");
+        goto Exit;
     }
+
+    //
+    // No failure.
+    //
+
+    *addr = PyInt_AsUnsignedLongMask(ret);
 
 Exit:
 
+    Py_CLEAR(arg0);
     Py_CLEAR(ret);
 
     dbglog("pybackend plugin: ip_choose_hook: %d", *addr);
@@ -232,19 +271,31 @@ static int pybackend_allowed_address(u_int32_t addr)
 {
     int result = 0;
     PyObject *ret = NULL;
+    PyObject *arg0 = NULL;
 
     dbglog("pybackend plugin: allowed_address_hook(addr = %d)", addr);
 
-    ret = pybackend_call_function("allowed_address_hook", 1, PyInt_FromSize_t(addr));
-    if (ret == NULL)
+    arg0 = PyInt_FromSize_t(addr);
+    ret = pybackend_call_function("allowed_address_hook", 1, arg0);
+    if (ret == NULL || ret == Py_None)
     {
         goto Exit;
     }
 
-    result = (ret == Py_True);
+    if (!PyBool_Check(ret))
+    {
+        warn("pybackend plugin: allowed_address_hook() did not return a boolean value");
+        goto Exit;
+    }
+
+    if (ret == Py_True)
+    {
+        result = 1;
+    }
 
 Exit:
 
+    Py_CLEAR(arg0);
     Py_CLEAR(ret);
 
     dbglog("pybackend plugin: allowed_address_hook: %d", result);
@@ -255,17 +306,20 @@ static void pybackend_notifier(void *hook, int arg)
 {
     const char *name = (const char *)hook;
     PyObject *ret = NULL;
+    PyObject *arg0 = NULL;
 
     dbglog("pybackend plugin: %s(arg = %d)", name, arg);
 
-    ret = pybackend_call_function(name, 1, PyInt_FromSize_t(arg));
-    if (ret == NULL)
+    arg0 = PyInt_FromSize_t(arg);
+    ret = pybackend_call_function(name, 1, arg0);
+    if (ret == NULL || ret == Py_None)
     {
         goto Exit;
     }
 
 Exit:
 
+    Py_CLEAR(arg0);
     Py_CLEAR(ret);
 
     dbglog("pybackend plugin: %s: void", name);
