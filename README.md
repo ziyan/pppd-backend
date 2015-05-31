@@ -6,7 +6,10 @@ Executes a program to check username/password pair for pppd.
 Usage
 =====
 
-Create a symlink or copy backend.so to /usr/lib/pppd/VERSION/
+```shell
+make
+sudo make install
+```
 
 In /etc/ppp/pptp-options and /etc/ppp/options.xl2tp, add:
 
@@ -20,6 +23,36 @@ Your executable should output with the secret associated with the user in one li
 
 Example auth.sh would be:
 
-    #!/bin/sh
-    [ "$1" == "test" ] && echo "password"
+```shell
+#!/bin/sh
+[ "$1" == "test" ] && echo "password"
+```
+
+Example python module:
+
+```python
+def chap_check_hook():
+    return True
+
+def chap_verify_hook(name, ourname, ipparam):
+    return "pass"
+
+def ip_choose_hook(ip):
+    return ip
+
+def allowed_address_hook(ip):
+    return True
+
+def ip_up_notifier(arg):
+    pass
+
+def ip_down_notifier(arg):
+    pass
+
+def auth_up_notifier(arg):
+    pass
+
+def link_down_notifier(arg):
+    pass
+```
 
